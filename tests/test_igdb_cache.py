@@ -72,3 +72,28 @@ async def test_cache_persists_to_disk(fresh_cache, monkeypatch, tmp_path: Path):
     cache_file = tmp_path / "igdb_cache.json"
     assert cache_file.is_file()
     assert '"game:1"' in cache_file.read_text()
+
+
+async def test_force_refresh_bypasses_cache(fresh_cache, monkeypatch):
+    calls = _fake_query_counter(monkeypatch)
+
+    await client.get_game_details([1, 2], include_dlcs=False)
+    assert calls["games"] == 1
+
+    # force_refresh re-queries even though 1 and 2 are cached.
+    await client.get_game_details([1], include_dlcs=False, force_refresh=True)
+    assert calls["games"] == 2
+
+
+async def test_clear_cache_forces_refetch(fresh_cache, monkeypatch, tmp_path: Path):
+    calls = _fake_query_counter(monkeypatch)
+
+    await client.get_game_details([1], include_dlcs=False)
+    assert calls["games"] == 1
+
+    client.clear_cache()
+    assert not (tmp_path / "igdb_cache.json").is_file()
+
+    # Cache gone -> next call hits the network again.
+    await client.get_game_details([1], include_dlcs=False)
+    assert calls["games"] == 2

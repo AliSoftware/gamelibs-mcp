@@ -271,33 +271,68 @@ async def igdb_search_games(
 
 @mcp.tool()
 @tool_errors
-async def igdb_get_game_details(ids: list[int], include_dlcs: bool = False) -> dict:
+async def igdb_get_game_details(
+    ids: list[int], include_dlcs: bool = False, force_refresh: bool = False
+) -> dict:
     """Full text metadata for specific IGDB game ids (summary, ratings, genres, companies...).
+
+    Results are cached on disk per id. Set force_refresh=True to bypass the cache and pull
+    fresh data for these ids (e.g. when the prompt asks for the latest ratings).
 
     Args:
         ids: IGDB game ids (from igdb_search_games / igdb_lookup_by_steam_appid), max 50 per call.
         include_dlcs: Include ids that are DLC/expansions (excluded by default).
+        force_refresh: Re-fetch from IGDB and overwrite the cached records for these ids.
     """
     cap = _cap_ids(ids, "ids")
     if cap:
         return cap
-    rows = await igdb.get_game_details(ids, include_dlcs)
+    rows = await igdb.get_game_details(ids, include_dlcs, force_refresh=force_refresh)
     return {"count": len(rows), "games": rows}
 
 
 @mcp.tool()
 @tool_errors
-async def igdb_lookup_by_steam_appid(appids: list[int]) -> dict:
+async def igdb_lookup_by_steam_appid(appids: list[int], force_refresh: bool = False) -> dict:
     """Map Steam appids to IGDB games (id + name) — bridges a Steam library to IGDB metadata.
 
     Args:
         appids: Steam appids (max 50 per call).
+        force_refresh: Re-query IGDB and overwrite the cached matches for these appids.
     """
     cap = _cap_ids(appids, "appids")
     if cap:
         return cap
-    rows = await igdb.lookup_by_steam_appid(appids)
+    rows = await igdb.lookup_by_steam_appid(appids, force_refresh=force_refresh)
     return {"count": len(rows), "matches": rows}
+
+
+@mcp.tool()
+@tool_errors
+async def refresh_cache(target: str = "all") -> dict:
+    """Flush cached library/metadata data so the next call re-fetches from the network.
+
+    Use when data may be stale (e.g. "get the latest ratings/library" or after you've
+    installed/bought games). Auth tokens are NOT cleared — this refreshes data, not login.
+    For refreshing just a few specific games, prefer force_refresh on the igdb_* tools.
+
+    Args:
+        target: Which caches to clear — "all" (default), "steam", "epic", or "igdb".
+    """
+    valid = {"all", "steam", "epic", "igdb"}
+    if target not in valid:
+        return {"error": f"Invalid target '{target}'. Choose one of: {', '.join(sorted(valid))}."}
+    cleared = []
+    if target in ("all", "steam"):
+        steam_web.clear_cache()
+        cleared.append("steam")
+    if target in ("all", "epic"):
+        epic_api.clear_cache()
+        cleared.append("epic")
+    if target in ("all", "igdb"):
+        igdb.clear_cache()
+        cleared.append("igdb")
+    return {"cleared": cleared, "note": "next call for these sources will re-fetch from network"}
 
 
 def main() -> None:

@@ -71,6 +71,11 @@ async def resolve_vanity(vanity_or_url: str) -> str:
     )
 
 
+def clear_cache() -> None:
+    """Drop the in-memory owned-games cache so the next call re-fetches from Steam."""
+    _owned_cache.clear()
+
+
 async def get_owned_games(force_refresh: bool = False) -> list[OwnedGame]:
     """Fetch all owned games with playtime for the configured user (cached ~5 min)."""
     if not force_refresh:

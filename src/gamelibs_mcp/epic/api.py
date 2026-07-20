@@ -140,6 +140,17 @@ def _catalog_key(namespace: str, catalog_item_id: str) -> str:
     return f"{namespace}:{catalog_item_id}"
 
 
+def clear_cache() -> None:
+    """Drop Epic's owned-records (in-memory) and catalog-metadata (disk) caches.
+
+    Auth tokens are left intact — this refreshes *data*, not the login session.
+    """
+    global _catalog_mem
+    _owned_cache.clear()
+    _catalog_mem = None
+    _catalog_cache_path().unlink(missing_ok=True)
+
+
 def _custom_attr(item: dict, key: str) -> str | None:
     """Read a catalog customAttribute value, tolerating both known encodings.
 

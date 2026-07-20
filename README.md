@@ -61,6 +61,8 @@ claude mcp add gamelibs -- uv run --directory "$PWD" python -m gamelibs_mcp
 **Steam** — `steam_list_games`, `steam_get_game_details`, `steam_resolve_user`
 **Epic** — `epic_auth_status`, `epic_get_login_url`, `epic_login`, `epic_list_games`, `epic_get_game_details`
 **IGDB** — `igdb_search_games`, `igdb_get_game_details`, `igdb_lookup_by_steam_appid`
+**Cache** — `refresh_cache` (flush cached data so the next call re-fetches; the `igdb_*`
+tools also take `force_refresh` for refreshing specific games)
 
 ## Test
 

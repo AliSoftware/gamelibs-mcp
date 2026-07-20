@@ -109,6 +109,13 @@ def _save_cache() -> None:
         _cache_path().write_text(json.dumps(_cache_mem))
 
 
+def clear_cache() -> None:
+    """Drop the persistent IGDB result cache. The Twitch auth token is left intact."""
+    global _cache_mem
+    _cache_mem = None
+    _cache_path().unlink(missing_ok=True)
+
+
 async def _get_token() -> str:
     cached = _load_cached_token()
     if cached:
@@ -201,18 +208,22 @@ async def search_games(query: str, include_dlcs: bool, limit: int, offset: int) 
     return [_summary_dict(r) for r in rows]
 
 
-async def get_game_details(ids: list[int], include_dlcs: bool) -> list[dict]:
+async def get_game_details(
+    ids: list[int], include_dlcs: bool, force_refresh: bool = False
+) -> list[dict]:
     """Return full text details for IGDB game ids, using the persistent per-id cache.
 
     Only cache-misses hit the API. DLC/expansion filtering is applied after retrieval so a
-    cached record is reusable regardless of the caller's ``include_dlcs``.
+    cached record is reusable regardless of the caller's ``include_dlcs``. Pass
+    ``force_refresh`` to re-fetch the given ids from IGDB and overwrite their cached records
+    (for prompts that need up-to-date data, e.g. latest ratings).
     """
     if not ids:
         return []
     want = [int(i) for i in ids]
     cache = _load_cache()
 
-    misses = [i for i in want if f"game:{i}" not in cache]
+    misses = want if force_refresh else [i for i in want if f"game:{i}" not in cache]
     if misses:
         id_list = ",".join(str(i) for i in misses)
         body = f"fields {_DETAIL_FIELDS}; where id = ({id_list}); limit {len(misses)};"
@@ -234,18 +245,19 @@ async def get_game_details(ids: list[int], include_dlcs: bool) -> list[dict]:
     return out
 
 
-async def lookup_by_steam_appid(appids: list[int]) -> list[dict]:
+async def lookup_by_steam_appid(appids: list[int], force_refresh: bool = False) -> list[dict]:
     """Map Steam appids to IGDB games via /external_games (category = Steam), cached by appid.
 
     Only positive matches are cached; appids with no IGDB mapping are re-queried next time,
-    since IGDB's database grows and a miss today may resolve later.
+    since IGDB's database grows and a miss today may resolve later. Pass ``force_refresh`` to
+    re-query the given appids and overwrite their cached matches.
     """
     if not appids:
         return []
     want = [int(a) for a in appids]
     cache = _load_cache()
 
-    misses = [a for a in want if f"steam:{a}" not in cache]
+    misses = want if force_refresh else [a for a in want if f"steam:{a}" not in cache]
     if misses:
         uids = ",".join(f'"{a}"' for a in misses)
         body = (
