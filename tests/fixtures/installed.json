@@ -1,0 +1,20 @@
+{
+	"Fortnite": {
+		"app_name": "Fortnite",
+		"title": "Fortnite",
+		"version": "1.2.3",
+		"install_path": "C:\\Games\\Fortnite",
+		"install_size": 30000000000,
+		"platform": "Windows",
+		"is_dlc": false
+	},
+	"Rocket League": {
+		"app_name": "Rocket League",
+		"title": "Rocket League",
+		"version": "2.0.0",
+		"install_path": "C:\\Games\\RocketLeague",
+		"install_size": 20000000000,
+		"platform": "Windows",
+		"is_dlc": false
+	}
+}

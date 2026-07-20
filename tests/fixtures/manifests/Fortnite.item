@@ -1,0 +1,12 @@
+{
+	"FormatVersion": 0,
+	"bIsIncompleteInstall": false,
+	"AppVersionString": "27.10",
+	"DisplayName": "Fortnite",
+	"InstallLocation": "C:\\Program Files\\Epic Games\\Fortnite",
+	"InstallSize": 45000000000,
+	"AppName": "Fortnite",
+	"CatalogNamespace": "fn",
+	"CatalogItemId": "abc123",
+	"AppCategories": ["public", "games", "applications"]
+}

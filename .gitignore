@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.env
+.pytest_cache/
+.ruff_cache/
+
+# Personal, machine-local Claude Code settings (permissions etc.)
+.claude/settings.local.json

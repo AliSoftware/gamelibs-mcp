@@ -1,0 +1,23 @@
+"libraryfolders"
+{
+	"contentstatsid"		"3187975095530642742"
+	"0"
+	{
+		"path"		"C:\\Program Files (x86)\\Steam"
+		"label"		""
+		"apps"
+		{
+			"440"		"24309708"
+			"570"		"20304050"
+		}
+	}
+	"1"
+	{
+		"path"		"E:\\SteamLibrary"
+		"mounted"		"1"
+		"apps"
+		{
+			"620"		"12345678"
+		}
+	}
+}

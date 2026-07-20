@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "gamelibs": {
+      "command": "uv",
+      "args": ["run", "--directory", "/absolute/path/to/gamelibs-mcp", "python", "-m", "gamelibs_mcp"],
+      "env": {
+        "STEAM_API_KEY": "your-steam-web-api-key",
+        "STEAM_ID": "your-steamid64",
+        "TWITCH_CLIENT_ID": "your-twitch-client-id",
+        "TWITCH_CLIENT_SECRET": "your-twitch-client-secret"
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+	"FormatVersion": 0,
+	"bIsIncompleteInstall": true,
+	"AppVersionString": "0.1",
+	"DisplayName": "Half Downloaded Game",
+	"InstallLocation": "C:\\Program Files\\Epic Games\\Half",
+	"InstallSize": 1000,
+	"AppName": "HalfDownloaded",
+	"CatalogNamespace": "half",
+	"CatalogItemId": "def456"
+}
