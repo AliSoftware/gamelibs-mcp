@@ -31,13 +31,32 @@ uv sync                     # or: pip install -e ".[dev]"
 
 ## Configure
 
-Copy `.env.example` and fill in credentials (or set them in your MCP client's `env`):
+Credentials are read from environment variables:
 
 | Variable | Needed for | How to get it |
 |---|---|---|
 | `STEAM_API_KEY` | Steam | https://steamcommunity.com/dev/apikey |
 | `STEAM_ID` or `STEAM_VANITY` | Steam | your SteamID64, or your `/id/<slug>` vanity name |
 | `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` | IGDB | https://dev.twitch.tv/console/apps |
+
+There are two ways to provide them (they combine — a real env var always wins over `.env`):
+
+1. **A `.env` file** — `cp .env.example .env` and fill it in. On startup the server loads
+   `.env` searched **from the directory it is launched in, upward**. This works for
+   `uv run mcp dev …` (launched from the project root) and for a `claude mcp add … --directory
+   <project>` registration (launched in the project dir). It does *not* magically work if the
+   server is launched from an unrelated directory.
+2. **Your MCP client's `env` block** — set them directly in the client config, which is the
+   most robust option and takes precedence over `.env`. For Claude Code:
+
+   ```bash
+   claude mcp add gamelibs \
+     --env STEAM_API_KEY=... --env STEAM_ID=... \
+     --env TWITCH_CLIENT_ID=... --env TWITCH_CLIENT_SECRET=... \
+     -- uv run --directory "$PWD" python -m gamelibs_mcp
+   ```
+
+   For Claude Desktop, use the `"env": { ... }` object shown in `.mcp.json.example`.
 
 Epic needs no static secret. If you already use Legendary/Heroic on this machine, Epic auth is
 bootstrapped from their local `user.json`. Otherwise: call `epic_get_login_url`, sign in, then
@@ -49,12 +68,16 @@ bootstrapped from their local `user.json`. Otherwise: call `epic_get_login_url`,
 ## Run
 
 ```bash
-# Interactive dev/testing with the MCP Inspector:
+# Interactive dev/testing with the MCP Inspector (run from the project root so .env is found):
 uv run mcp dev src/gamelibs_mcp/server.py
 
-# Register in Claude Code (see .mcp.json.example for the config-file form):
+# Register in Claude Code — add credentials via --env (see "Configure" above) or rely on .env:
 claude mcp add gamelibs -- uv run --directory "$PWD" python -m gamelibs_mcp
 ```
+
+> Env vars come from a `.env` in the launch directory and/or the client's `env` block — see
+> **Configure** above. `mcp dev` has no `--env-file` flag, so it relies on `.env` (or vars you
+> `export` in the shell first).
 
 ## Tools
 

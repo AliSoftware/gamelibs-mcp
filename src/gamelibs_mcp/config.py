@@ -3,6 +3,11 @@
 Nothing here raises at import time. Each accessor either returns a value or raises
 :class:`ConfigError` only when a feature that needs it is actually invoked, so a server
 configured for only one integration still starts and serves that integration.
+
+Credentials come from the environment. On import we also load a local ``.env`` file
+(searched from the launch directory upward) so tokens can live in a file next to the
+project — but variables already set in the real environment (e.g. passed by the MCP
+client's ``env`` block) take precedence and are never overwritten.
 """
 
 from __future__ import annotations
@@ -11,8 +16,15 @@ import os
 from pathlib import Path
 
 import platformdirs
+from dotenv import find_dotenv, load_dotenv
 
 APP_NAME = "gamelibs-mcp"
+
+# Load .env if one is found from the current working directory upward. `override=False`
+# (the default) means real environment variables win over .env entries.
+_dotenv_path = find_dotenv(usecwd=True)
+if _dotenv_path:
+    load_dotenv(_dotenv_path)
 
 
 class ConfigError(RuntimeError):
