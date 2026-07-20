@@ -23,6 +23,29 @@ _limiter = RateLimiter(rate_per_sec=4.0, burst=4)
 # ExternalGameCategoryEnum: 1 == Steam.
 EXTERNAL_STEAM = 1
 
+# ExternalGameCategoryEnum -> human store name, for surfacing `external_games` (which
+# stores a game is available/owned on). Unknown codes fall back to their number.
+_EXTERNAL_STORE_NAMES = {
+    1: "steam",
+    5: "gog",
+    11: "microsoft",
+    13: "apple",
+    15: "android",
+    20: "amazon_asin",
+    22: "amazon_luna",
+    23: "amazon_adg",
+    26: "epic",
+    28: "oculus",
+    29: "utomik",
+    30: "itch_io",
+    31: "xbox_marketplace",
+    32: "kartridge",
+    36: "playstation_store",
+    37: "focus",
+    54: "xbox_game_pass_cloud",
+    55: "gamejolt",
+}
+
 _TOKEN_FILE = "igdb_token.json"
 
 
@@ -112,9 +135,11 @@ _SUMMARY_FIELDS = "id,name,first_release_date"
 _DETAIL_FIELDS = (
     "id,name,summary,storyline,url,first_release_date,"
     "rating,rating_count,aggregated_rating,aggregated_rating_count,total_rating,"
-    "genres.name,platforms.name,game_modes.name,themes.name,"
+    "genres.name,platforms.name,game_modes.name,themes.name,keywords.name,"
     "involved_companies.company.name,involved_companies.developer,"
-    "involved_companies.publisher,similar_games.name"
+    "involved_companies.publisher,similar_games.name,multiplayer_modes.*,"
+    "alternative_names.name,external_games.category,external_games.uid,"
+    "franchise.name,franchises.name,collections.name"
 )
 
 
@@ -185,6 +210,33 @@ def _release_year(epoch: int | None) -> int | None:
     return time.gmtime(int(epoch)).tm_year
 
 
+def _multiplayer_summary(modes: list[dict]) -> dict | None:
+    """Collapse IGDB's per-platform multiplayer_modes into one compact set of flags.
+
+    Returns None when IGDB has no multiplayer data (distinct from "not multiplayer") so the
+    model can tell "unknown" apart from "single-player only". Flags are OR-ed across platforms.
+    """
+    if not modes:
+        return None
+
+    def _any(flag: str) -> bool:
+        return any(bool(m.get(flag)) for m in modes)
+
+    def _max(flag: str) -> int | None:
+        vals = [m.get(flag) for m in modes if isinstance(m.get(flag), int) and m.get(flag)]
+        return max(vals) if vals else None
+
+    return {
+        "online_coop": _any("onlinecoop"),
+        "offline_coop": _any("offlinecoop"),
+        "lan_coop": _any("lancoop"),
+        "campaign_coop": _any("campaigncoop"),
+        "splitscreen": _any("splitscreen"),
+        "online_max_players": _max("onlinemax"),
+        "offline_max_players": _max("offlinemax"),
+    }
+
+
 def _summary_dict(r: dict) -> dict:
     return {
         "id": r.get("id"),
@@ -218,9 +270,33 @@ def _detail_dict(r: dict) -> dict:
         "genres": [g["name"] for g in r.get("genres", []) if g.get("name")],
         "platforms": [p["name"] for p in r.get("platforms", []) if p.get("name")],
         "game_modes": [m["name"] for m in r.get("game_modes", []) if m.get("name")],
+        "multiplayer": _multiplayer_summary(r.get("multiplayer_modes", []) or []),
         "themes": [t["name"] for t in r.get("themes", []) if t.get("name")],
+        "keywords": [k["name"] for k in r.get("keywords", []) if k.get("name")],
         "developers": developers,
         "publishers": publishers,
         "similar_games": [s["name"] for s in r.get("similar_games", []) if s.get("name")],
+        "alternative_names": [
+            a["name"] for a in r.get("alternative_names", []) if a.get("name")
+        ],
+        "franchise": (r.get("franchise") or {}).get("name"),
+        "franchises": [f["name"] for f in r.get("franchises", []) if f.get("name")],
+        "collections": [c["name"] for c in r.get("collections", []) if c.get("name")],
+        "external_stores": _external_stores(r.get("external_games", []) or []),
         "url": r.get("url"),
     }
+
+
+def _external_stores(externals: list[dict]) -> list[dict]:
+    """Which storefronts a game maps to on IGDB, as ``[{store, uid}]`` (deduplicated)."""
+    seen: set[tuple] = set()
+    out: list[dict] = []
+    for e in externals:
+        cat = e.get("category")
+        store = _EXTERNAL_STORE_NAMES.get(cat, str(cat) if cat is not None else None)
+        uid = e.get("uid")
+        key = (store, uid)
+        if store and key not in seen:
+            seen.add(key)
+            out.append({"store": store, "uid": uid})
+    return out

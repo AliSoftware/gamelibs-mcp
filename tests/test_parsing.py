@@ -57,6 +57,58 @@ def test_igdb_detail_dict_splits_companies():
     assert "cover" not in d and "screenshots" not in d
 
 
+def test_igdb_detail_dict_keywords_and_multiplayer():
+    raw = {
+        "id": 2,
+        "name": "Co-op TD",
+        "keywords": [{"name": "tower defense"}, {"name": "wave survival"}],
+        "multiplayer_modes": [
+            {"onlinecoop": True, "onlinemax": 4, "splitscreen": False},
+            {"onlinecoop": False, "onlinemax": 2, "lancoop": True},
+        ],
+    }
+    d = igdb._detail_dict(raw)
+    assert d["keywords"] == ["tower defense", "wave survival"]
+    # Flags OR across per-platform entries; max players is the largest seen.
+    assert d["multiplayer"]["online_coop"] is True
+    assert d["multiplayer"]["lan_coop"] is True
+    assert d["multiplayer"]["online_max_players"] == 4
+
+
+def test_igdb_detail_dict_multiplayer_unknown_is_none():
+    # No multiplayer_modes data -> None (unknown), not a dict of False.
+    d = igdb._detail_dict({"id": 3, "name": "Solo", "keywords": []})
+    assert d["multiplayer"] is None
+    assert d["keywords"] == []
+
+
+def test_igdb_detail_dict_names_franchise_and_external_stores():
+    raw = {
+        "id": 4,
+        "name": "Portal 2",
+        "alternative_names": [{"name": "P2"}, {"name": "Portal II"}],
+        "franchise": {"name": "Portal"},
+        "franchises": [{"name": "Portal"}, {"name": "Half-Life universe"}],
+        "collections": [{"name": "Portal Collection"}],
+        "external_games": [
+            {"category": 1, "uid": "620"},       # steam
+            {"category": 26, "uid": "epic-620"},  # epic
+            {"category": 999, "uid": "x"},        # unknown -> numeric fallback
+            {"category": 1, "uid": "620"},        # duplicate -> dropped
+        ],
+    }
+    d = igdb._detail_dict(raw)
+    assert d["alternative_names"] == ["P2", "Portal II"]
+    assert d["franchise"] == "Portal"
+    assert d["franchises"] == ["Portal", "Half-Life universe"]
+    assert d["collections"] == ["Portal Collection"]
+    assert d["external_stores"] == [
+        {"store": "steam", "uid": "620"},
+        {"store": "epic", "uid": "epic-620"},
+        {"store": "999", "uid": "x"},
+    ]
+
+
 def test_epic_keep_record_filters_dlc():
     dlc = {"is_dlc": True, "is_game": False, "categories": ["addons"]}
     game = {"is_dlc": False, "is_game": True, "categories": ["games"]}
