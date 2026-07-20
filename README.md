@@ -8,6 +8,14 @@ Store**, and **IGDB** game data as tools an MCP client (Claude Code / Desktop) c
   open-source [Legendary](https://github.com/derrod/legendary) CLI / [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher).
 - **[IGDB](https://www.igdb.com/)** — a games metadata database, for enriching/looking up game info.
 
+Example prompt you could use once this MCP is set up:
+
+> Give me the top 5 of the games I own in my Steam and Epic library and I have not played yet but should play next.
+>
+> I'm currently looking for a multiplayer game I can play online with my friends; since we played a lot of FPS games recently we want to try something different and more chill this time, maybe more collaborative like some Tower Defense or a Survival game.
+>
+> Use the games I've already played as a baseline to get a sense of my overall taste but also don't hesitate to interview me to refine your understanding of what I am currently in the mood for.
+
 ## Exposed Tools
 
 - **Steam** — `steam_list_games`, `steam_get_game_details`, `steam_resolve_user`
