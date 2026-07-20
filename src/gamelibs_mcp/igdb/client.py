@@ -75,6 +75,40 @@ def _store_token(access_token: str, expires_in: int) -> None:
     path.chmod(0o600)
 
 
+# --- persistent per-id result cache ----------------------------------------
+# IGDB game metadata is effectively immutable per game id, so (like Epic's catalog cache)
+# we persist resolved details to disk keyed by IGDB game id and by Steam appid. Search
+# results are deliberately NOT cached (query-dependent and can shift as IGDB's DB grows).
+_CACHE_FILE = "igdb_cache.json"
+_cache_mem: dict[str, dict] | None = None
+
+# GameCategoryEnum values that count as DLC/expansions (excluded unless include_dlcs).
+_DLC_CATEGORY_INTS = {1, 2, 4}
+
+
+def _cache_path() -> Path:
+    return config.config_dir() / _CACHE_FILE
+
+
+def _load_cache() -> dict[str, dict]:
+    global _cache_mem
+    if _cache_mem is None:
+        path = _cache_path()
+        if path.is_file():
+            try:
+                _cache_mem = json.loads(path.read_text())
+            except (OSError, ValueError):
+                _cache_mem = {}
+        else:
+            _cache_mem = {}
+    return _cache_mem
+
+
+def _save_cache() -> None:
+    if _cache_mem is not None:
+        _cache_path().write_text(json.dumps(_cache_mem))
+
+
 async def _get_token() -> str:
     cached = _load_cached_token()
     if cached:
@@ -129,11 +163,12 @@ async def _query(endpoint: str, body: str) -> list[dict]:
 # --- public helpers --------------------------------------------------------
 
 # Textual fields only — deliberately no cover/screenshots (see project design notes).
-# We don't request `category` even though the DLC filter uses it: filtering happens in the
-# `where` clause, which can reference fields that aren't in `fields`.
+# search_games filters DLC via the `where` clause, so _SUMMARY_FIELDS omits `category`.
+# _DETAIL_FIELDS requests `category` because get_game_details caches full records by id and
+# applies the DLC filter *after* retrieval — so one cached record serves either include_dlcs.
 _SUMMARY_FIELDS = "id,name,first_release_date"
 _DETAIL_FIELDS = (
-    "id,name,summary,storyline,url,first_release_date,"
+    "id,name,summary,storyline,url,first_release_date,category,"
     "rating,rating_count,aggregated_rating,aggregated_rating_count,total_rating,"
     "genres.name,platforms.name,game_modes.name,themes.name,keywords.name,"
     "involved_companies.company.name,involved_companies.developer,"
@@ -167,39 +202,70 @@ async def search_games(query: str, include_dlcs: bool, limit: int, offset: int) 
 
 
 async def get_game_details(ids: list[int], include_dlcs: bool) -> list[dict]:
+    """Return full text details for IGDB game ids, using the persistent per-id cache.
+
+    Only cache-misses hit the API. DLC/expansion filtering is applied after retrieval so a
+    cached record is reusable regardless of the caller's ``include_dlcs``.
+    """
     if not ids:
         return []
-    id_list = ",".join(str(int(i)) for i in ids)
-    where = f"where id = ({id_list})"
-    clause = _dlc_clause(include_dlcs)
-    if clause:
-        where += f" & {clause}"
-    body = f"fields {_DETAIL_FIELDS}; {where}; limit {len(ids)};"
-    rows = await _query("games", body)
-    return [_detail_dict(r) for r in rows]
+    want = [int(i) for i in ids]
+    cache = _load_cache()
+
+    misses = [i for i in want if f"game:{i}" not in cache]
+    if misses:
+        id_list = ",".join(str(i) for i in misses)
+        body = f"fields {_DETAIL_FIELDS}; where id = ({id_list}); limit {len(misses)};"
+        rows = await _query("games", body)
+        for r in rows:
+            rec = _detail_dict(r)
+            rec["_category"] = r.get("category")  # internal, used only for DLC filtering
+            cache[f"game:{rec['id']}"] = rec
+        _save_cache()
+
+    out: list[dict] = []
+    for i in want:
+        rec = cache.get(f"game:{i}")
+        if rec is None:
+            continue  # id not found in IGDB
+        if not include_dlcs and rec.get("_category") in _DLC_CATEGORY_INTS:
+            continue
+        out.append({k: v for k, v in rec.items() if not k.startswith("_")})
+    return out
 
 
 async def lookup_by_steam_appid(appids: list[int]) -> list[dict]:
-    """Map Steam appids to IGDB games via /external_games (category = Steam)."""
+    """Map Steam appids to IGDB games via /external_games (category = Steam), cached by appid.
+
+    Only positive matches are cached; appids with no IGDB mapping are re-queried next time,
+    since IGDB's database grows and a miss today may resolve later.
+    """
     if not appids:
         return []
-    uids = ",".join(f'"{int(a)}"' for a in appids)
-    body = (
-        f"fields uid,game,game.name,game.first_release_date; "
-        f"where category = {EXTERNAL_STEAM} & uid = ({uids}); limit {len(appids)};"
-    )
-    rows = await _query("external_games", body)
-    out: list[dict] = []
-    for r in rows:
-        game = r.get("game") or {}
-        out.append(
-            {
-                "steam_appid": int(r["uid"]) if str(r.get("uid", "")).isdigit() else r.get("uid"),
+    want = [int(a) for a in appids]
+    cache = _load_cache()
+
+    misses = [a for a in want if f"steam:{a}" not in cache]
+    if misses:
+        uids = ",".join(f'"{a}"' for a in misses)
+        body = (
+            f"fields uid,game,game.name,game.first_release_date; "
+            f"where category = {EXTERNAL_STEAM} & uid = ({uids}); limit {len(misses)};"
+        )
+        rows = await _query("external_games", body)
+        for r in rows:
+            uid = int(r["uid"]) if str(r.get("uid", "")).isdigit() else None
+            if uid is None:
+                continue
+            game = r.get("game") or {}
+            cache[f"steam:{uid}"] = {
+                "steam_appid": uid,
                 "igdb_id": game.get("id"),
                 "name": game.get("name"),
             }
-        )
-    return out
+        _save_cache()
+
+    return [cache[f"steam:{a}"] for a in want if f"steam:{a}" in cache]
 
 
 # --- shaping ---------------------------------------------------------------
