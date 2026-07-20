@@ -10,16 +10,16 @@ Store**, and **IGDB** game data as tools an MCP client (Claude Code / Desktop) c
 
 ## Design notes
 
-- **Lean responses.** Tools split into thin *list* tools (ids/titles only) and fat *detail*
-  tools that take a sublist of ids. Everything is paginated (`limit`/`offset`) and filterable
-  server-side (`search`, `installed_only`, `sort`). No image/cover URLs are ever returned, and
-  DLCs are excluded unless you pass `include_dlcs=True`. This keeps large libraries from
-  blowing up the model's context.
-- **Per-machine install detection.** "Installed" data lives only in local files: Steam's `.acf`
-  manifests, the official Epic Games Launcher's `*.item` manifests, and/or Legendary/Heroic's
-  `installed.json`. Run this server on the machine you actually game on to get real install
-  status. Owned/playtime data works from anywhere. Windows, macOS, and Linux layouts are
-  supported (the official Epic launcher is Windows/macOS only).
+- **Lean responses.** This keeps large libraries from blowing up the model's context.
+   - Tools split into thin *list* tools (ids/titles only) and fat *detail* tools that take a sublist of ids.
+   - Everything is paginated (`limit`/`offset`) and filterable server-side (`search`, `installed_only`, `sort`).
+   - No image/cover URLs are ever returned
+   - DLCs are excluded unless you pass `include_dlcs=True`. 
+- **Per-machine install detection.**
+   - "Installed" data lives only in local files: Steam's `.acf` manifests, the official Epic Games Launcher's `*.item` manifests, and/or Legendary/Heroic's `installed.json`.
+   - Run this server on the machine you actually game on to get real install status.
+   - Owned/playtime data works from anywhere.
+   - Windows, macOS, and Linux layouts are supported (the official Epic launcher is Windows/macOS only).
 
 ## Install
 
@@ -59,8 +59,7 @@ There are two ways to provide them (they combine — a real env var always wins 
    For Claude Desktop, use the `"env": { ... }` object shown in `.mcp.json.example`.
 
 Epic needs no static secret. If you already use Legendary/Heroic on this machine, Epic auth is
-bootstrapped from their local `user.json`. Otherwise: call `epic_get_login_url`, sign in, then
-`epic_login(<authorizationCode>)`.
+bootstrapped from their local `user.json`. Otherwise: call `epic_get_login_url`, open the returned URL in your browser, sign in, then call `epic_login(<authorizationCode>)`.
 
 > Steam note: `GetOwnedGames` only returns data if your profile's **Game details** privacy is
 > set to **Public** (and "Always keep my total playtime private" is off).
@@ -68,11 +67,12 @@ bootstrapped from their local `user.json`. Otherwise: call `epic_get_login_url`,
 ## Run
 
 ```bash
-# Interactive dev/testing with the MCP Inspector (run from the project root so .env is found):
-uv run mcp dev src/gamelibs_mcp/server.py
-
 # Register in Claude Code — add credentials via --env (see "Configure" above) or rely on .env:
 claude mcp add gamelibs -- uv run --directory "$PWD" python -m gamelibs_mcp
+
+# Interactive dev/testing with the MCP Inspector (run from the project root so .env is found):
+# Useful for develoeprs to debug the MCP and experiment with its tools manually
+uv run mcp dev src/gamelibs_mcp/server.py
 ```
 
 > Env vars come from a `.env` in the launch directory and/or the client's `env` block — see
@@ -81,10 +81,10 @@ claude mcp add gamelibs -- uv run --directory "$PWD" python -m gamelibs_mcp
 
 ## Tools
 
-**Steam** — `steam_list_games`, `steam_get_game_details`, `steam_resolve_user`
-**Epic** — `epic_auth_status`, `epic_get_login_url`, `epic_login`, `epic_list_games`, `epic_get_game_details`
-**IGDB** — `igdb_search_games`, `igdb_get_game_details`, `igdb_lookup_by_steam_appid`
-**Cache** — `refresh_cache` (flush cached data so the next call re-fetches; the `igdb_*`
+- **Steam** — `steam_list_games`, `steam_get_game_details`, `steam_resolve_user`
+- **Epic** — `epic_auth_status`, `epic_get_login_url`, `epic_login`, `epic_list_games`, `epic_get_game_details`
+- **IGDB** — `igdb_search_games`, `igdb_get_game_details`, `igdb_lookup_by_steam_appid`
+- **Cache** — `refresh_cache` (flush cached data so the next call re-fetches; the `igdb_*`
 tools also take `force_refresh` for refreshing specific games)
 
 ## Test
