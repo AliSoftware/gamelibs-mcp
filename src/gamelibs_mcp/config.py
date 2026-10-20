@@ -109,3 +109,14 @@ def heroic_config_override() -> str | None:
 def epic_manifests_override() -> str | None:
     """Override the official Epic Games Launcher manifests dir (the *.item folder)."""
     return _optional("EPIC_MANIFESTS_PATH")
+
+
+# --- GOG -------------------------------------------------------------------
+def gog_database_override() -> str | None:
+    """Explicit path to the GOG Galaxy ``galaxy-2.0.db`` database."""
+    return _optional("GOG_DB_PATH")
+
+
+def gog_user_id() -> str | None:
+    """GOG Galaxy profile ID, required only when the database has multiple profiles."""
+    return _optional("GOG_USER_ID")

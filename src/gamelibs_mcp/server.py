@@ -1,4 +1,4 @@
-"""FastMCP server exposing Steam, Epic, and IGDB game-library tools.
+"""FastMCP server exposing Steam, Epic, GOG, and IGDB game-library tools.
 
 Design principles (see plan): thin-list + fat-detail, pagination + server-side filtering
 everywhere, no image URLs, DLCs excluded by default. Every tool degrades to a clear
@@ -18,6 +18,7 @@ from mcp.server.fastmcp import FastMCP
 from gamelibs_mcp import config
 from gamelibs_mcp.epic import api as epic_api
 from gamelibs_mcp.epic import auth as epic_auth
+from gamelibs_mcp.gog import gog as gog_api
 from gamelibs_mcp.http import ApiError
 from gamelibs_mcp.igdb import client as igdb
 from gamelibs_mcp.steam import local as steam_local
@@ -247,6 +248,53 @@ async def epic_get_game_details(app_names: list[str], include_dlcs: bool = False
     if cap:
         return cap
     games = await epic_api.get_game_details(app_names, include_dlcs)
+    return {"count": len(games), "games": games}
+
+
+# ============================ GOG ==========================================
+
+@mcp.tool()
+@tool_errors
+async def gog_list_games(
+    search: str | None = None,
+    sort: str = "playtime",
+    limit: int = 100,
+    offset: int = 0,
+) -> dict:
+    """List games recorded in the local GOG Galaxy database (title, playtime, last played).
+
+    Args:
+        search: Case-insensitive substring match on the game title.
+        sort: One of "playtime" (desc), "name" (asc), or "last_played" (desc).
+        limit: Page size (1-500).
+        offset: Pagination offset.
+    """
+    games = gog_api.list_games()
+    if search:
+        needle = search.lower().strip()
+        games = [game for game in games if needle in game["title"].lower()]
+
+    if sort == "name":
+        games.sort(key=lambda game: game["title"].lower())
+    elif sort == "last_played":
+        games.sort(key=lambda game: game["last_played"] or "", reverse=True)
+    else:
+        games.sort(key=lambda game: game["playtime_minutes"], reverse=True)
+    return paginate(games, limit, offset)
+
+
+@mcp.tool()
+@tool_errors
+async def gog_get_game_details(release_keys: list[str]) -> dict:
+    """Get local playtime details for GOG games by release_key from gog_list_games.
+
+    Args:
+        release_keys: GOG Galaxy release keys (max 50 per call).
+    """
+    cap = _cap_ids(release_keys, "release_keys")
+    if cap:
+        return cap
+    games = gog_api.get_game_details(release_keys)
     return {"count": len(games), "games": games}
 
 

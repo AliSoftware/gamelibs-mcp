@@ -1,11 +1,12 @@
 # gamelibs-mcp
 
 An [MCP](https://modelcontextprotocol.io) server that exposes your **Steam**, **Epic Games
-Store**, and **IGDB** game data as tools an MCP client (Claude Code / Desktop) can call.
+Store**, **GOG**, and **IGDB** game data as tools an MCP client (Claude Code / Desktop) can call.
 
 - **Steam** — owned games, playtime, and *installed-on-this-machine* status.
 - **Epic** — owned library + install status, via the reverse-engineered endpoints used by the
   open-source [Legendary](https://github.com/derrod/legendary) CLI / [Heroic](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher).
+- **GOG** — game titles and playtime from the local GOG Galaxy database.
 - **[IGDB](https://www.igdb.com/)** — a games metadata database, for enriching/looking up game info.
 
 Example prompt you could use once this MCP is set up:
@@ -20,6 +21,7 @@ Example prompt you could use once this MCP is set up:
 
 - **Steam** — `steam_list_games`, `steam_get_game_details`, `steam_resolve_user`
 - **Epic** — `epic_auth_status`, `epic_get_login_url`, `epic_login`, `epic_list_games`, `epic_get_game_details`
+- **GOG** — `gog_list_games`, `gog_get_game_details`
 - **IGDB** — `igdb_search_games`, `igdb_get_game_details`, `igdb_lookup_by_steam_appid`
 - **Cache** — `refresh_cache` (flush cached data so the next call re-fetches; the `igdb_*`
 tools also take `force_refresh` for refreshing specific games)
@@ -33,6 +35,7 @@ tools also take `force_refresh` for refreshing specific games)
    - DLCs are excluded unless you pass `include_dlcs=True`. 
 - **Per-machine install detection.**
    - "Installed" data lives only in local files: Steam's `.acf` manifests, the official Epic Games Launcher's `*.item` manifests, and/or Legendary/Heroic's `installed.json`.
+   - GOG titles and playtime are read from the local GOG Galaxy database; this integration does not report install status.
    - Run this server on the machine you actually game on to get real install status.
    - Owned/playtime data works from anywhere.
    - Windows, macOS, and Linux layouts are supported (the official Epic launcher is Windows/macOS only).
@@ -55,6 +58,8 @@ Credentials are read from environment variables:
 |---|---|---|
 | `STEAM_API_KEY` | Steam | https://steamcommunity.com/dev/apikey |
 | `STEAM_ID` or `STEAM_VANITY` | Steam | your SteamID64, or your `/id/<slug>` vanity name |
+| `GOG_DB_PATH` | GOG (optional) | path to GOG Galaxy's `galaxy-2.0.db` when it cannot be auto-detected |
+| `GOG_USER_ID` | GOG (optional) | select a profile if the database contains multiple profiles |
 | `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` | IGDB | https://dev.twitch.tv/console/apps |
 
 Those will typically be provided as environment variables in your MCP client's configuration (e.g. `claude_desktop_config.json`, see "Set up in Claude" below), but can also be provided via a `.env` file (see "Contributing - Developer Tips").
@@ -62,6 +67,7 @@ Those will typically be provided as environment variables in your MCP client's c
 > [!NOTE]
 > - Epic does not need static secrets. If you already use Legendary/Heroic on this machine, Epic auth is bootstrapped from their local `user.json`. Otherwise, your MCP client is expected to call `epic_get_login_url`, have you open the returned URL in your browser to sign in to Epic like normal, then call `epic_login(<authorizationCode>)`.
 > - For Steam, `GetOwnedGames` only returns data if your profile's **Game details** privacy is set to **Public** (and "Always keep my total playtime private" is off).
+> - GOG reads the local Galaxy database. If multiple GOG profiles are stored there, set `GOG_USER_ID`; the database's `GameTimes` table must contain the selected profile's playtime records.
 
 
 ## Set up in Claude
