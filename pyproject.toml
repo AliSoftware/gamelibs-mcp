@@ -1,7 +1,7 @@
 [project]
 name = "gamelibs-mcp"
 version = "0.1.0"
-description = "MCP server exposing your Steam, Epic Games, and IGDB game libraries"
+description = "MCP server exposing your Steam, Epic Games, GOG, and IGDB game libraries"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
